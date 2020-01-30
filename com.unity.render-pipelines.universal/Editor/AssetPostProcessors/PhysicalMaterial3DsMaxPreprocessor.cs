@@ -5,7 +5,7 @@ using System;
 using System.Reflection;
 using UnityEditor.Experimental.AssetImporters;
 
-namespace UnityEditor.Rendering.HighDefinition
+namespace UnityEditor.Rendering.Universal
 {
     class PhysicalMaterial3DsMaxPreprocessor : AssetPostprocessor
     {
