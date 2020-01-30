@@ -1,12 +1,6 @@
-using System.Collections;
-using System.Collections.Generic;
 using System.IO;
-using UnityEditor;
 using UnityEditor.AssetImporters;
 using UnityEngine;
-using UnityEngine.Rendering;
-using System;
-using System.Reflection;
 using UnityEditor.Experimental.AssetImporters;
 
 namespace UnityEditor.Rendering.Universal
@@ -16,8 +10,8 @@ namespace UnityEditor.Rendering.Universal
         static readonly uint k_Version = 2;
         static readonly int k_Order = 4;
 
-        static readonly string k_ShaderPath =
-            "Packages/com.unity.render-pipelines.universal/Runtime/Materials/ArnoldStandardSurface.shadergraph";
+        static readonly string k_ShaderPath = "Packages/com.unity.render-pipelines.universal/Runtime/Materials/ArnoldStandardSurface/ArnoldStandardSurface.shadergraph";
+        static readonly string k_ShaderTransparentPath = "Packages/com.unity.render-pipelines.universal/Runtime/Materials/ArnoldStandardSurface/ArnoldStandardSurfaceTransparent.shadergraph";
 
         public override uint GetVersion()
         {
@@ -32,7 +26,7 @@ namespace UnityEditor.Rendering.Universal
         [CollectImportedDependencies(typeof(ModelImporter), 1)]
         public static string[] CollectImportedDependenciesForModelImporter(string assetPath)
         {
-            return new[] {k_ShaderPath};
+            return new[] {k_ShaderPath, k_ShaderTransparentPath };
         }
 
         static bool IsMayaArnoldStandardSurfaceMaterial(MaterialDescription description)
@@ -70,23 +64,7 @@ namespace UnityEditor.Rendering.Universal
             float floatProperty;
             Vector4 vectorProperty;
             TexturePropertyDescription textureProperty;
-
-            //context.DependsOnImportedAsset(k_ShaderPath) is internal, use reflection for now..
-            var method = typeof(AssetImportContext).GetMethod("DependsOnImportedAsset",
-                BindingFlags.Instance | BindingFlags.NonPublic, null,
-                CallingConventions.Any, new Type[] {typeof(string)}, null);
-
-            method.Invoke(context, new object[] {k_ShaderPath});
-            var shader = AssetDatabase.LoadAssetAtPath<Shader>(k_ShaderPath);
-            if (shader == null)
-                return;
-
-
-            material.shader = shader;
-            foreach (var clip in clips)
-            {
-                clip.ClearCurves();
-            }
+            Shader shader;
 
             float opacity = 1.0f;
             Vector4 opacityColor;
@@ -104,6 +82,11 @@ namespace UnityEditor.Rendering.Universal
 
             if (opacity < 1.0f || hasOpacityMap)
             {
+                shader = AssetDatabase.LoadAssetAtPath<Shader>(k_ShaderTransparentPath);
+                if (shader == null)
+                    return;
+
+                material.shader = shader;
                 if (hasOpacityMap)
                 {
                     material.SetTexture("_OPACITY_MAP", opacityMap.texture);
@@ -114,21 +97,20 @@ namespace UnityEditor.Rendering.Universal
                     material.SetFloat("_OPACITY", opacity);
                 }
 
-                material.SetInt("_SrcBlend", 1);
-                material.SetInt("_DstBlend", 10);
-                material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-                material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                material.EnableKeyword("_BLENDMODE_PRESERVE_SPECULAR_LIGHTING");
-                material.EnableKeyword("_ENABLE_FOG_ON_TRANSPARENT");
-                material.EnableKeyword("_BLENDMODE_ALPHA");
-                material.renderQueue = 3000;
             }
             else
             {
-                material.EnableKeyword("_DOUBLESIDED_ON");
-                material.SetInt("_CullMode", 0);
-                material.SetInt("_CullModeForward", 0);
-                material.doubleSidedGI = true;
+                shader = AssetDatabase.LoadAssetAtPath<Shader>(k_ShaderPath);
+                if (shader == null)
+                    return;
+
+                material.shader = shader;
+            }
+
+            
+            foreach (var clip in clips)
+            {
+                clip.ClearCurves();
             }
 
             description.TryGetProperty("base", out floatProperty);
@@ -167,8 +149,6 @@ namespace UnityEditor.Rendering.Universal
             remapPropertyTexture(description, material, "normalCamera", "_NORMAL_MAP");
         }
 
-
-
         void CreateFrom3DsMaxArnoldStandardSurfaceMaterial(MaterialDescription description, Material material,
             AnimationClip[] clips)
         {
@@ -176,12 +156,6 @@ namespace UnityEditor.Rendering.Universal
             Vector4 vectorProperty;
             TexturePropertyDescription textureProperty;
 
-            //context.DependsOnImportedAsset(k_ShaderPath) is internal, use reflection for now..
-            var method = typeof(AssetImportContext).GetMethod("DependsOnImportedAsset",
-                BindingFlags.Instance | BindingFlags.NonPublic, null,
-                CallingConventions.Any, new Type[] {typeof(string)}, null);
-
-            method.Invoke(context, new object[] {k_ShaderPath});
             var shader = AssetDatabase.LoadAssetAtPath<Shader>(k_ShaderPath);
             if (shader == null)
                 return;
@@ -211,14 +185,6 @@ namespace UnityEditor.Rendering.Universal
                 {
                     material.SetFloat("_OPACITY", opacity);
                 }
-
-                shader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/ArnoldStandardSurfaceTransparent.shadergraph");
-                material.SetInt("_SrcBlend", 1);
-                material.SetInt("_DstBlend", 10);
-                material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-                material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                material.EnableKeyword("_BLENDMODE_ALPHA");
-                material.renderQueue = 3000;
             }
 
             description.TryGetProperty("base", out floatProperty);

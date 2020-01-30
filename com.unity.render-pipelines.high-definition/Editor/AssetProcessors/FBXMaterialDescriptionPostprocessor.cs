@@ -1,9 +1,6 @@
 using System.IO;
 using UnityEditor.AssetImporters;
-using UnityEditor;
 using UnityEngine;
-using System;
-using System.Reflection;
 using UnityEditor.Experimental.AssetImporters;
 
 namespace UnityEditor.Rendering.HighDefinition

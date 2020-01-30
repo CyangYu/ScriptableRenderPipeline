@@ -1,24 +1,16 @@
 using UnityEditor.AssetImporters;
 using UnityEditor.Experimental;
 using UnityEngine;
-using System;
-using System.Reflection;
 using UnityEditor.Experimental.AssetImporters;
 
 namespace UnityEditor.Rendering.Universal
 {
     class PhysicalMaterial3DsMaxPreprocessor : AssetPostprocessor
     {
-        [InitializeOnLoadMethod]
-        static void ImportOnFileChange()
-        {
-            AssetDatabaseExperimental.RegisterCustomDependency("PhysicalMaterialPreprocessor", Hash128.Compute(k_UsedByVersion.ToString()));
-        }
-
-        static readonly uint k_UsedByVersion = 1;
         static readonly uint k_Version = 1;
         static readonly int k_Order = 4;
         static readonly string k_ShaderPath = "Packages/com.unity.render-pipelines.universal/Runtime/Materials/PhysicalMaterial3DsMax/PhysicalMaterial3DsMax.ShaderGraph";
+        static readonly string k_ShaderTransparentPath = "Packages/com.unity.render-pipelines.universal/Runtime/Materials/PhysicalMaterial3DsMax/PhysicalMaterial3DsMaxTransparent.ShaderGraph";
 
         public override uint GetVersion()
         {
@@ -33,7 +25,7 @@ namespace UnityEditor.Rendering.Universal
         [CollectImportedDependencies(typeof(ModelImporter), 1)]
         public static string[] CollectImportedDependenciesForModelImporter(string assetPath)
         {
-            return new[] { k_ShaderPath };
+            return new[] { k_ShaderPath, k_ShaderTransparentPath };
         }
 
         static bool Is3DsMaxPhysicalMaterial(MaterialDescription description)
@@ -58,22 +50,7 @@ namespace UnityEditor.Rendering.Universal
             float floatProperty;
             Vector4 vectorProperty;
             TexturePropertyDescription textureProperty;
-
-            context.DependsOnCustomDependency("PhysicalMaterialPreprocessor");
-            //context.DependsOnImportedAsset(k_ShaderPath) is internal, use reflection for now..
-            var method = typeof(AssetImportContext).GetMethod("DependsOnImportedAsset", BindingFlags.Instance | BindingFlags.NonPublic, null,
-                CallingConventions.Any, new Type[] { typeof(string) }, null);
-
-            method.Invoke(context, new object[] { k_ShaderPath });
-            var shader = AssetDatabase.LoadAssetAtPath<Shader>(k_ShaderPath);
-            if (shader == null)
-                return;
-
-            material.shader = shader;
-            foreach (var clip in clips)
-            {
-                clip.ClearCurves();
-            }
+            Shader shader;
 
             description.TryGetProperty("transparency", out floatProperty);
             bool hasTransparencyMap =
@@ -81,6 +58,11 @@ namespace UnityEditor.Rendering.Universal
 
             if (floatProperty > 0.0f || hasTransparencyMap)
             {
+                shader = AssetDatabase.LoadAssetAtPath<Shader>(k_ShaderTransparentPath);
+                if (shader == null)
+                    return;
+
+                material.shader = shader;
                 if (hasTransparencyMap)
                 {
                     material.SetTexture("_TRANSPARENCY_MAP", textureProperty.texture);
@@ -90,22 +72,19 @@ namespace UnityEditor.Rendering.Universal
                 {
                     material.SetFloat("_TRANSPARENCY", floatProperty);
                 }
-
-                material.SetInt("_SrcBlend", 1);
-                material.SetInt("_DstBlend", 10);
-                material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-                material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                material.EnableKeyword("_BLENDMODE_PRESERVE_SPECULAR_LIGHTING");
-                material.EnableKeyword("_ENABLE_FOG_ON_TRANSPARENT");
-                material.EnableKeyword("_BLENDMODE_ALPHA");
-                material.renderQueue = 3000;
             }
             else
             {
-                material.EnableKeyword("_DOUBLESIDED_ON");
-                material.SetInt("_CullMode", 0);
-                material.SetInt("_CullModeForward", 0);
-                material.doubleSidedGI = true;
+                shader = AssetDatabase.LoadAssetAtPath<Shader>(k_ShaderPath);
+                if (shader == null)
+                    return;
+
+                material.shader = shader;
+            }
+
+            foreach (var clip in clips)
+            {
+                clip.ClearCurves();
             }
 
             RemapPropertyFloat(description, material, "base_weight", "_BASE_COLOR_WEIGHT");
@@ -132,8 +111,6 @@ namespace UnityEditor.Rendering.Universal
             RemapPropertyTextureOrFloat(description, material, "trans_ior", "_REFLECTIONS_IOR");
             RemapPropertyFloat(description, material, "emission", "_EMISSION_WEIGHT");
             RemapPropertyTextureOrColor(description, material, "emit_color", "_EMISSION_COLOR");
-
-            RemapPropertyTextureOrFloat(description, material, "anisotropy", "_ANISOTROPY");
 
             RemapPropertyFloat(description, material, "bump_map_amt", "_BUMP_MAP_STRENGTH");
             RemapPropertyTexture(description, material, "bump_map", "_BUMP_MAP");
@@ -171,6 +148,7 @@ namespace UnityEditor.Rendering.Universal
             if (description.TryGetProperty(inPropName + "_map", out TexturePropertyDescription textureProperty))
             {
                 material.SetTexture(outPropName + "_MAP", textureProperty.texture);
+                material.SetColor(outPropName, Color.white);
             }
             else if(description.TryGetProperty(inPropName, out Vector4 color))
             {

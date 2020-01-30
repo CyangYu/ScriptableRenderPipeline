@@ -1,21 +1,11 @@
 using UnityEditor.AssetImporters;
-using UnityEditor.Experimental;
 using UnityEngine;
-using System;
-using System.Reflection;
 using UnityEditor.Experimental.AssetImporters;
 
 namespace UnityEditor.Rendering.HighDefinition
 {
     class PhysicalMaterial3DsMaxPreprocessor : AssetPostprocessor
     {
-        [InitializeOnLoadMethod]
-        static void ImportOnFileChange()
-        {
-            AssetDatabaseExperimental.RegisterCustomDependency("PhysicalMaterialPreprocessor", Hash128.Compute(k_UsedByVersion.ToString()));
-        }
-
-        static readonly uint k_UsedByVersion = 1;
         static readonly uint k_Version = 1;
         static readonly int k_Order = 4;
         static readonly string k_ShaderPath = "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/PhysicalMaterial3DsMax/PhysicalMaterial3DsMax.ShaderGraph";
